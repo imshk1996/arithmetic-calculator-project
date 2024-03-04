@@ -1,26 +1,34 @@
-from django.test import TestCase, Client
-from django.urls import reverse
+from django.test import TestCase
+from rest_framework.test import APIClient
 
-class CalculatorViewTest(TestCase):
+class CalculatorTestCase(TestCase):
     def setUp(self):
-        self.client = Client()
+        self.client = APIClient()
 
-    def test_calculate_valid_expression(self):
-        url = reverse('calculate')
-        data = {'expression': '5+3-2'}
-        response = self.client.post(url, data, content_type='application/json')
+    def test_valid_expression(self):
+        data = {'expression': '10+5-3'}
+        response = self.client.post('/api/calculate/', data)
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(response.json()['result'], 6)
+        self.assertEqual(response.data['result'], 12)
 
-    def test_calculate_invalid_expression(self):
-        url = reverse('calculate')
-        data = {'expression': '5+3*2'}
-        response = self.client.post(url, data, content_type='application/json')
+    def test_invalid_expression(self):
+        data = {'expression': '10*5'}
+        response = self.client.post('/api/calculate/', data)
         self.assertEqual(response.status_code, 400)
-        self.assertIn('Invalid expression', response.json()['error'])
+        self.assertIn('Invalid expression', response.data['error'])
 
-    def test_calculate_missing_expression(self):
-        url = reverse('calculate')
-        response = self.client.post(url, {}, content_type='application/json')
+    def test_missing_operand(self):
+        data = {'expression': '10+'}
+        response = self.client.post('/api/calculate/', data)
         self.assertEqual(response.status_code, 400)
-        self.assertIn('Expression not provided', response.json()['error'])
+        self.assertIn("Invalid expression: Missing operand after '+'", response.data['error'])
+
+    def test_double_negative(self):
+        data = {'expression': '--10+5'}
+        response = self.client.post('/api/calculate/', data)
+        self.assertEqual(response.status_code, 400)
+        self.assertIn('Invalid expression: Double negative at the beginning', response.data['error'])    
+
+    def test_invalid_method(self):
+        response = self.client.get('/api/calculate/')
+        self.assertEqual(response.status_code, 405)
